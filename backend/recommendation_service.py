@@ -5,24 +5,7 @@ from typing import List
 
 import pandas as pd
 
-try:  # pragma: no cover - support both package and module execution
-    from .core_recommender import (
-        CSV_URL,
-        build_model_artifacts,
-        get_watched_movies,
-        hybrid_recommend,
-        integrate_user_ratings,
-        load_base_dataset,
-    )
-except ImportError:  # pragma: no cover
-    from core_recommender import (  # type: ignore
-        CSV_URL,
-        build_model_artifacts,
-        get_watched_movies,
-        hybrid_recommend,
-        integrate_user_ratings,
-        load_base_dataset,
-    )
+import core_recommender as core
 
 
 class RecommendationError(Exception):
@@ -30,33 +13,31 @@ class RecommendationError(Exception):
 
 
 @lru_cache(maxsize=1)
-def _load_cached_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
+def _load_cached_dataset(csv_url: str = core.CSV_URL) -> pd.DataFrame:
     """Load and cache the base ratings dataset from Dropbox."""
-    return load_base_dataset(csv_url)
+    return core.load_base_dataset(csv_url)
 
 
-def refresh_dataset(csv_url: str = CSV_URL) -> None:
-    """Clear the dataset cache; useful for manual refreshes."""
+def refresh_dataset(csv_url: str = core.CSV_URL) -> None:
     _load_cached_dataset.cache_clear()
     _load_cached_dataset(csv_url)
 
 
 def generate_recommendations(username: str, top_n: int = 10) -> List[str]:
-    """Generate movie recommendations for a Letterboxd username."""
     if not username or not username.strip():
         raise RecommendationError("Username must be provided.")
 
     try:
-        watched_movies = get_watched_movies(username.strip())
+        watched_movies = core.get_watched_movies(username.strip())
     except Exception as exc:  # noqa: BLE001
         raise RecommendationError(str(exc)) from exc
 
     base_df = _load_cached_dataset().copy()
 
     try:
-        combined_df = integrate_user_ratings(base_df, username, watched_movies)
-        artifacts = build_model_artifacts(combined_df)
-        recs_df = hybrid_recommend(username, artifacts, top_n=top_n)
+        combined_df = core.integrate_user_ratings(base_df, username, watched_movies)
+        artifacts = core.build_model_artifacts(combined_df)
+        recs_df = core.hybrid_recommend(username, artifacts, top_n=top_n)
     except Exception as exc:  # noqa: BLE001
         raise RecommendationError("Failed to generate recommendations.") from exc
 

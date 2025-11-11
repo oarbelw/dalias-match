@@ -6,18 +6,11 @@ from typing import Any, Dict
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-try:  # pragma: no cover - import convenience for local vs package execution
-    from .recommendation_service import (
-        RecommendationError,
-        generate_recommendations,
-        refresh_dataset,
-    )
-except ImportError:  # noqa: F401  # pragma: no cover
-    from recommendation_service import (  # type: ignore
-        RecommendationError,
-        generate_recommendations,
-        refresh_dataset,
-    )
+from recommendation_service import (
+    RecommendationError,
+    generate_recommendations,
+    refresh_dataset,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
