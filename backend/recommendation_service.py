@@ -1,18 +1,11 @@
 from __future__ import annotations
 
-import sys
 from functools import lru_cache
-from pathlib import Path
 from typing import List
 
 import pandas as pd
 
-# Ensure the project root (where the original recommender.py lives) is on PYTHONPATH
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from recommender import (  # pylint: disable=wrong-import-position
+from .core_recommender import (
     CSV_URL,
     build_model_artifacts,
     get_watched_movies,
