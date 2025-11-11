@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import io
+import os
 import re
 import time
 from collections import defaultdict
@@ -16,10 +18,11 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
 
-CSV_URL = (
+DEFAULT_CSV_URL = (
     "https://dl.dropboxusercontent.com/scl/fi/rcg7hpyxd7z9pwtd1vdlq/"
-    "ratings_df.csv?rlkey=oopp2pdgvyink2o8p5nn49uf6&st=kis0a2xb"
+    "ratings_df.csv?rlkey=oopp2pdgvyink2o8p5nn49uf6&dl=1"
 )
+CSV_URL = os.getenv("CSV_URL", DEFAULT_CSV_URL)
 DEFAULT_YEAR = 2000
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -33,8 +36,16 @@ CB_WEIGHT = 0.3
 
 
 def load_base_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
+    try:
+        response = requests.get(csv_url, timeout=60)
+        response.raise_for_status()
+    except requests.HTTPError as exc:  # pragma: no cover - network failure
+        raise ValueError(
+            "Failed to download ratings dataset. Verify that the CSV_URL is correct and publicly accessible."
+        ) from exc
+
     df = pd.read_csv(
-        csv_url,
+        io.StringIO(response.text),
         dtype={
             "rating_val": "float32",
             "year_released": "float32",
