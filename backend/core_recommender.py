@@ -6,10 +6,12 @@ import time
 from collections import defaultdict
 from typing import Dict, Iterable, List, Tuple
 
+import numpy as np
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from requests import Response, Session
+from scipy.sparse import csr_matrix
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
@@ -31,8 +33,22 @@ CB_WEIGHT = 0.3
 
 
 def load_base_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
-    """Load the ratings DataFrame from the hosted CSV."""
-    df = pd.read_csv(csv_url)
+    df = pd.read_csv(
+        csv_url,
+        dtype={
+            "rating_val": "float32",
+            "year_released": "float32",
+        },
+        usecols=[
+            "movie_id",
+            "movie_title",
+            "genres",
+            "original_language",
+            "year_released",
+            "user_id",
+            "rating_val",
+        ],
+    )
     expected_columns = {
         "movie_id",
         "movie_title",
@@ -51,7 +67,6 @@ def load_base_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
 
 
 def convert_stars(stars: str) -> int:
-    """Convert a Letterboxd star string (e.g. '★★★½') to a 0-10 scale."""
     result = 0
     for char in stars:
         if char == "★":
@@ -70,7 +85,6 @@ def _fetch(session: Session, url: str) -> Response:
 
 
 def get_watched_movies(username: str, delay_seconds: float = PAGE_DELAY_SECONDS) -> List[Tuple[str, int]]:
-    """Scrape Letterboxd for the given user's watched movies and ratings."""
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT})
 
@@ -121,7 +135,6 @@ def get_watched_movies(username: str, delay_seconds: float = PAGE_DELAY_SECONDS)
 def integrate_user_ratings(
     df: pd.DataFrame, username: str, watched_movies: Iterable[Tuple[str, int]]
 ) -> pd.DataFrame:
-    """Append the scraped user ratings to the dataset and refresh indices."""
     user_df = pd.DataFrame(watched_movies, columns=["movie_id", "rating_val"])
     user_df["user_id"] = username
 
@@ -163,28 +176,45 @@ def integrate_user_ratings(
     ]
 
     combined = pd.concat([df_without_user, merged], ignore_index=True)
-
-    combined["user_idx"] = combined["user_id"].astype("category").cat.codes
-    combined["movie_idx"] = combined["movie_id"].astype("category").cat.codes
-
+    combined["rating_val"] = combined["rating_val"].astype("float32")
     return combined
 
 
 def build_model_artifacts(df: pd.DataFrame) -> Dict[str, object]:
-    """Create matrices and lookup tables required for recommendations."""
-    user_item_matrix = df.pivot_table(
-        index="user_idx", columns="movie_idx", values="rating_val", fill_value=0
-    )
+    df = df.copy()
+    df["rating_val"] = df["rating_val"].astype("float32")
 
-    unique_movies = df.drop_duplicates("movie_idx")[["movie_idx", "movie_id", "movie_title", "genres"]].copy()
+    user_cat = df["user_id"].astype("category")
+    movie_cat = df["movie_id"].astype("category")
 
-    genres_for_vector = (
-        unique_movies["genres"].fillna("Others").astype(str).str.replace(r"\s*,\s*", "|", regex=True)
-    )
+    df["user_idx"] = user_cat.cat.codes.astype("int32")
+    df["movie_idx"] = movie_cat.cat.codes.astype("int32")
+
+    n_users = user_cat.cat.categories.size
+    n_movies = movie_cat.cat.categories.size
+
+    ratings = df["rating_val"].to_numpy(dtype="float32")
+    user_indices = df["user_idx"].to_numpy(dtype="int32")
+    movie_indices = df["movie_idx"].to_numpy(dtype="int32")
+
+    user_item_matrix = csr_matrix((ratings, (user_indices, movie_indices)), shape=(n_users, n_movies))
+
+    user_ratings_map: Dict[int, List[Tuple[int, float]]] = {}
+    for user_idx, group in df.groupby("user_idx"):
+        user_ratings_map[int(user_idx)] = list(
+            zip(group["movie_idx"].astype(int), group["rating_val"].astype(float))
+        )
+
+    user_seen_map = {user_idx: {movie for movie, _ in items} for user_idx, items in user_ratings_map.items()}
+
+    unique_movies = df.drop_duplicates("movie_idx")[["movie_idx", "movie_title", "genres"]].copy()
 
     vectorizer = CountVectorizer(
         tokenizer=lambda text: [token.strip() for token in text.split("|") if token.strip()],
         token_pattern=None,
+    )
+    genres_for_vector = unique_movies["genres"].fillna("Others").astype(str).str.replace(
+        r"\s*,\s*", "|", regex=True
     )
     genre_matrix = vectorizer.fit_transform(genres_for_vector)
 
@@ -195,9 +225,10 @@ def build_model_artifacts(df: pd.DataFrame) -> Dict[str, object]:
     movie_idx_to_row = dict(zip(unique_movies["movie_idx"], range(len(unique_movies))))
     row_to_movie_idx = {row: idx for idx, row in movie_idx_to_row.items()}
 
-    user_mapping = (
-        df[["user_id", "user_idx"]].drop_duplicates().set_index("user_id")["user_idx"].to_dict()
-    )
+    user_mapping = {
+        user_id: int(idx)
+        for idx, user_id in enumerate(user_cat.cat.categories)
+    }
 
     movie_info = unique_movies.set_index("movie_idx")[
         ["movie_title", "genres"]
@@ -206,6 +237,8 @@ def build_model_artifacts(df: pd.DataFrame) -> Dict[str, object]:
     return {
         "df": df,
         "user_item_matrix": user_item_matrix,
+        "user_ratings_map": user_ratings_map,
+        "user_seen_map": user_seen_map,
         "knn": knn,
         "genre_matrix": genre_matrix,
         "movie_idx_to_row": movie_idx_to_row,
@@ -216,15 +249,25 @@ def build_model_artifacts(df: pd.DataFrame) -> Dict[str, object]:
 
 
 def get_similar_users(
-    user_idx: int, user_item_matrix: pd.DataFrame, top_k: int = 10
+    user_idx: int,
+    artifacts: Dict[str, object],
+    top_k: int = 10,
 ) -> pd.DataFrame:
-    """Find the most similar users using cosine similarity."""
-    user_vector = user_item_matrix.loc[[user_idx]]
-    similarities = cosine_similarity(user_vector, user_item_matrix)[0]
+    user_item_matrix: csr_matrix = artifacts["user_item_matrix"]
+    if user_item_matrix.shape[0] == 0:
+        return pd.DataFrame(columns=["user_idx", "similarity"])
 
-    sim_df = pd.DataFrame({"user_idx": user_item_matrix.index, "similarity": similarities})
-    sim_df = sim_df[sim_df["user_idx"] != user_idx]
-    return sim_df.sort_values("similarity", ascending=False).head(top_k)
+    similarities = cosine_similarity(user_item_matrix.getrow(user_idx), user_item_matrix).ravel()
+    if similarities.size == 0:
+        return pd.DataFrame(columns=["user_idx", "similarity"])
+
+    similarities[user_idx] = -1
+
+    top_k = min(top_k, similarities.size)
+    indices = np.argpartition(similarities, -top_k)[-top_k:]
+    indices = indices[np.argsort(similarities[indices])[::-1]]
+
+    return pd.DataFrame({"user_idx": indices, "similarity": similarities[indices]})
 
 
 def get_similar_movies_knn(
@@ -258,14 +301,13 @@ def get_cb_recommendations(
     artifacts: Dict[str, object],
     top_n: int = 10,
 ) -> pd.DataFrame:
-    user_item_matrix: pd.DataFrame = artifacts["user_item_matrix"]
-    user_ratings = user_item_matrix.loc[user_idx]
-    rated_indices = user_ratings[user_ratings > 0].index
+    user_ratings_map: Dict[int, List[Tuple[int, float]]] = artifacts["user_ratings_map"]
+    rated_entries = user_ratings_map.get(user_idx, [])
+    rated_indices = {movie for movie, _ in rated_entries}
 
     scores: defaultdict[int, float] = defaultdict(float)
 
-    for movie in rated_indices:
-        rating = user_ratings[movie]
+    for movie, rating in rated_entries:
         neighbors = get_similar_movies_knn(movie, artifacts, top_k=50)
         for neighbor_movie, similarity in neighbors:
             if neighbor_movie in rated_indices:
@@ -288,19 +330,20 @@ def get_cf_recommendations(
     if similar_users.empty:
         return pd.DataFrame(columns=["movie_idx", "cf_score"])
 
-    user_item_matrix: pd.DataFrame = artifacts["user_item_matrix"]
-    user_seen = set(user_item_matrix.columns[user_item_matrix.loc[user_idx] > 0])
+    user_seen_map: Dict[int, set[int]] = artifacts["user_seen_map"]
+    user_ratings_map: Dict[int, List[Tuple[int, float]]] = artifacts["user_ratings_map"]
+
+    user_seen = user_seen_map.get(user_idx, set())
 
     scores: defaultdict[int, float] = defaultdict(float)
     for _, row in similar_users.iterrows():
-        neighbor_idx = row["user_idx"]
-        similarity = row["similarity"]
+        neighbor_idx = int(row["user_idx"])
+        similarity = float(row["similarity"])
         if similarity <= 0:
             continue
 
-        neighbor_ratings = user_item_matrix.loc[neighbor_idx]
-        for movie, rating in neighbor_ratings.items():
-            if rating <= 0 or movie in user_seen:
+        for movie, rating in user_ratings_map.get(neighbor_idx, []):
+            if movie in user_seen or rating <= 0:
                 continue
             scores[movie] += similarity * rating
 
@@ -323,9 +366,8 @@ def hybrid_recommend(
         raise ValueError(f"User '{username}' not present in dataset after integration.")
 
     user_idx = user_mapping[username]
-    user_item_matrix: pd.DataFrame = artifacts["user_item_matrix"]
 
-    similar_users = get_similar_users(user_idx, user_item_matrix, top_k=10)
+    similar_users = get_similar_users(user_idx, artifacts, top_k=10)
     cf_df = get_cf_recommendations(user_idx, similar_users, artifacts, top_n=top_n * 2)
     cb_df = get_cb_recommendations(user_idx, artifacts, top_n=top_n * 2)
 
@@ -334,7 +376,8 @@ def hybrid_recommend(
         return hybrid_df
 
     hybrid_df["hybrid_score"] = (
-        cf_weight * hybrid_df.get("cf_score", 0) + cb_weight * hybrid_df.get("cb_score", 0)
+        cf_weight * hybrid_df.get("cf_score", 0)
+        + cb_weight * hybrid_df.get("cb_score", 0)
     )
     hybrid_df = hybrid_df.sort_values("hybrid_score", ascending=False).head(top_n)
 
