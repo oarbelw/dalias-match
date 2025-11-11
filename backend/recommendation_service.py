@@ -5,14 +5,24 @@ from typing import List
 
 import pandas as pd
 
-from .core_recommender import (
-    CSV_URL,
-    build_model_artifacts,
-    get_watched_movies,
-    hybrid_recommend,
-    integrate_user_ratings,
-    load_base_dataset,
-)
+try:  # pragma: no cover - support both package and module execution
+    from .core_recommender import (
+        CSV_URL,
+        build_model_artifacts,
+        get_watched_movies,
+        hybrid_recommend,
+        integrate_user_ratings,
+        load_base_dataset,
+    )
+except ImportError:  # pragma: no cover
+    from core_recommender import (  # type: ignore
+        CSV_URL,
+        build_model_artifacts,
+        get_watched_movies,
+        hybrid_recommend,
+        integrate_user_ratings,
+        load_base_dataset,
+    )
 
 
 class RecommendationError(Exception):
