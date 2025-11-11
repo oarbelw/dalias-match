@@ -19,8 +19,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
 
 DEFAULT_CSV_URL = (
-    "https://dl.dropboxusercontent.com/scl/fi/rcg7hpyxd7z9pwtd1vdlq/"
-    "ratings_df.csv?rlkey=oopp2pdgvyink2o8p5nn49uf6&dl=1"
+    "https://github.com/oarbelw/dalias-match/releases/download/v1.0/ratings_df.csv"
 )
 CSV_URL = os.getenv("CSV_URL", DEFAULT_CSV_URL)
 DEFAULT_YEAR = 2000
