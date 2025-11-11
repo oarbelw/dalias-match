@@ -7,13 +7,13 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 try:  # pragma: no cover - import convenience for local vs package execution
-    from .recommender import (
+    from .recommendation_service import (
         RecommendationError,
         generate_recommendations,
         refresh_dataset,
     )
 except ImportError:  # noqa: F401  # pragma: no cover
-    from recommender import (  # type: ignore
+    from recommendation_service import (  # type: ignore
         RecommendationError,
         generate_recommendations,
         refresh_dataset,

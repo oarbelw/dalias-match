@@ -1,2 +1,10 @@
- **/__pycache__/
+# Python caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+
+# macOS artifacts
 .DS_Store
