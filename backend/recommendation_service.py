@@ -13,14 +13,14 @@ class RecommendationError(Exception):
 
 
 @lru_cache(maxsize=1)
-def _load_cached_dataset(csv_url: str = core.CSV_URL) -> pd.DataFrame:
-    """Load and cache the base ratings dataset from Dropbox."""
+def load_dataset(csv_url: str = core.CSV_URL) -> pd.DataFrame:
+    """Load and cache the base ratings dataset from the configured source."""
     return core.load_base_dataset(csv_url)
 
 
 def refresh_dataset(csv_url: str = core.CSV_URL) -> None:
-    _load_cached_dataset.cache_clear()
-    _load_cached_dataset(csv_url)
+    load_dataset.cache_clear()
+    load_dataset(csv_url)
 
 
 def generate_recommendations(username: str, top_n: int = 10) -> List[str]:
@@ -32,7 +32,7 @@ def generate_recommendations(username: str, top_n: int = 10) -> List[str]:
     except Exception as exc:  # noqa: BLE001
         raise RecommendationError(str(exc)) from exc
 
-    base_df = _load_cached_dataset().copy()
+    base_df = load_dataset().copy()
 
     try:
         combined_df = core.integrate_user_ratings(base_df, username, watched_movies)
