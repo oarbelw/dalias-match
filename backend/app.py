@@ -7,7 +7,7 @@ from typing import Any, Dict
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from recommendation_service import (
+from backend.recommendation_service import (
     RecommendationError,
     generate_recommendations,
     refresh_dataset,

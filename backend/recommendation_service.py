@@ -5,7 +5,7 @@ from typing import List
 
 import pandas as pd
 
-import core_recommender as core
+from backend import core_recommender as core
 
 
 class RecommendationError(Exception):
