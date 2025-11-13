@@ -9,7 +9,7 @@ from collections import defaultdict
 from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
-import pyarrow, pandas as pd
+import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from requests import Response, Session
