@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List
-
-import pandas as pd
+from typing import Dict, List
 
 from backend import core_recommender as core
 
@@ -13,14 +11,16 @@ class RecommendationError(Exception):
 
 
 @lru_cache(maxsize=1)
-def load_dataset(csv_url: str = core.CSV_URL) -> pd.DataFrame:
-    """Load and cache the base ratings dataset from the configured source."""
-    return core.load_base_dataset(csv_url)
+def get_artifacts() -> Dict[str, object]:
+    print("🔹 Loading precomputed artifacts from:", core.ARTIFACTS_URL)
+    artifacts = core.load_artifacts(core.ARTIFACTS_URL)
+    print("✅ Artifacts loaded successfully.")
+    return artifacts
 
 
-def refresh_dataset(csv_url: str = core.CSV_URL) -> None:
-    load_dataset.cache_clear()
-    load_dataset(csv_url)
+def refresh_dataset() -> None:
+    get_artifacts.cache_clear()
+    get_artifacts()
 
 
 def generate_recommendations(username: str, top_n: int = 10) -> List[str]:
@@ -32,12 +32,16 @@ def generate_recommendations(username: str, top_n: int = 10) -> List[str]:
     except Exception as exc:  # noqa: BLE001
         raise RecommendationError(str(exc)) from exc
 
-    base_df = load_dataset().copy()
+    artifacts = get_artifacts()
+    user_vector, seen_indices = core.build_user_vector_from_watched(watched_movies, artifacts)
+
+    if not seen_indices:
+        raise RecommendationError(
+            "We couldn't match any of this user's movies to our dataset yet. Try another profile."
+        )
 
     try:
-        combined_df = core.integrate_user_ratings(base_df, username, watched_movies)
-        artifacts = core.build_model_artifacts(combined_df)
-        recs_df = core.hybrid_recommend(username, artifacts, top_n=top_n)
+        recs_df = core.hybrid_recommend_for_new_user(user_vector, seen_indices, artifacts, top_n=top_n)
     except Exception as exc:  # noqa: BLE001
         raise RecommendationError("Failed to generate recommendations.") from exc
 
