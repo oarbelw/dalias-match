@@ -1,4 +1,4 @@
-const API_BASE_URL = window.API_BASE_URL || "https://movie-backend.up.railway.app";
+const API_BASE_URL = window.API_BASE_URL || "https://dalias-match-989834185609.us-central1.run.app";
 
 const usernameInput = document.getElementById("username");
 const submitButton = document.getElementById("submit");
