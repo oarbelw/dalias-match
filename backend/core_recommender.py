@@ -19,7 +19,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
 
 DEFAULT_CSV_URL = (
-    "https://github.com/oarbelw/dalias-match/releases/download/v1.0/ratings_df.csv"
+    "https://github.com/oarbelw/dalias-match/releases/download/v1.1/ratings_df.parquet"
 )
 CSV_URL = os.getenv("CSV_URL", DEFAULT_CSV_URL)
 DEFAULT_YEAR = 2000
@@ -43,22 +43,7 @@ def load_base_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
             "Failed to download ratings dataset. Verify that the CSV_URL is correct and publicly accessible."
         ) from exc
 
-    df = pd.read_csv(
-        io.StringIO(response.text),
-        dtype={
-            "rating_val": "float32",
-            "year_released": "float32",
-        },
-        usecols=[
-            "movie_id",
-            "movie_title",
-            "genres",
-            "original_language",
-            "year_released",
-            "user_id",
-            "rating_val",
-        ],
-    )
+    df = pd.read_parquet(io.BytesIO(response.content))
     expected_columns = {
         "movie_id",
         "movie_title",
