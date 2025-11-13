@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.recommendation_service import (
     RecommendationError,
     generate_recommendations,
-    load_dataset,
+    refresh_dataset,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,16 +31,11 @@ app.add_middleware(
 def _ensure_dataset_loaded() -> None:
     """Load the dataset on-demand and cache the result."""
     try:
-        load_dataset()
-        logger.info("Ratings dataset is ready.")
+        refresh_dataset()
+        logger.info("Ratings dataset loaded and cached successfully.")
     except Exception as exc:  # noqa: BLE001
         logger.exception("Failed to load dataset: %s", exc)
         raise
-
-
-@app.get("/", summary="Root endpoint")
-def root() -> Dict[str, str]:
-    return {"message": "Dalia's Match API. Use /health or /recommend?username=<letterboxd_user>."}
 
 
 @app.get("/health", summary="API health check")
