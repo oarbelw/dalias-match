@@ -12,7 +12,7 @@ COPY frontend/ frontend/
 RUN python -m pip install --upgrade pip && \
     pip install --no-cache-dir -r backend/requirements.txt
 
-RUN python - <<"PY"
+RUN python - <<'PY'
 from pathlib import Path
 import urllib.request
 
