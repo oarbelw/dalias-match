@@ -13,14 +13,14 @@ class RecommendationError(Exception):
 
 
 @lru_cache(maxsize=1)
-def load_dataset(csv_url: str = core.CSV_URL) -> pd.DataFrame:
+def load_dataset() -> pd.DataFrame:
     """Load and cache the base ratings dataset from the configured source."""
-    return core.load_base_dataset(csv_url)
+    return core.load_base_dataset()
 
 
-def refresh_dataset(csv_url: str = core.CSV_URL) -> None:
+def refresh_dataset() -> None:
     load_dataset.cache_clear()
-    load_dataset(csv_url)
+    load_dataset()
 
 
 def generate_recommendations(username: str, top_n: int = 10) -> List[str]:

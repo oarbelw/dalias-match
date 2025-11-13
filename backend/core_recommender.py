@@ -6,6 +6,7 @@ import os
 import re
 import time
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
@@ -18,10 +19,13 @@ from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
 
-DEFAULT_CSV_URL = (
-    "https://github.com/oarbelw/dalias-match/releases/download/v1.1/ratings_df.parquet"
+_DEFAULT_DATASET_PATH = Path(__file__).resolve().parent / "data" / "ratings_df.parquet"
+DATASET_PATH = Path(os.getenv("DATASET_PATH", str(_DEFAULT_DATASET_PATH)))
+DATASET_URL = os.getenv(
+    "DATASET_URL",
+    "https://github.com/oarbelw/dalias-match/releases/download/v1.1/ratings_df.parquet",
 )
-CSV_URL = os.getenv("CSV_URL", DEFAULT_CSV_URL)
+CSV_URL = DATASET_URL
 DEFAULT_YEAR = 2000
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -34,13 +38,20 @@ CF_WEIGHT = 0.7
 CB_WEIGHT = 0.3
 
 
-def load_base_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
+def load_base_dataset(dataset_url: str | None = None) -> pd.DataFrame:
+    if DATASET_PATH.exists():
+        return pd.read_parquet(DATASET_PATH)
+
+    url = dataset_url or DATASET_URL
+    if not url:
+        raise ValueError("DATASET_URL is not configured and dataset file is missing.")
+
     try:
-        response = requests.get(csv_url, timeout=60)
+        response = requests.get(url, timeout=120)
         response.raise_for_status()
     except requests.HTTPError as exc:  # pragma: no cover - network failure
         raise ValueError(
-            "Failed to download ratings dataset. Verify that the CSV_URL is correct and publicly accessible."
+            "Failed to download ratings dataset. Verify that the DATASET_URL is correct and publicly accessible."
         ) from exc
 
     df = pd.read_parquet(io.BytesIO(response.content))
@@ -56,7 +67,7 @@ def load_base_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
     missing_cols = expected_columns - set(df.columns)
     if missing_cols:
         raise ValueError(
-            f"Dataset at {csv_url} is missing required columns: {sorted(missing_cols)}"
+            "Dataset is missing required columns: " f"{sorted(missing_cols)}"
         )
     return df
 
