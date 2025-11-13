@@ -19,7 +19,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import NearestNeighbors
 
 DEFAULT_CSV_URL = (
-    "https://github.com/oarbelw/dalias-match/releases/download/v1.0/ratings_df.csv"
+    "https://github.com/oarbelw/dalias-match/releases/download/v1.1/ratings_df.parquet"
 )
 CSV_URL = os.getenv("CSV_URL", DEFAULT_CSV_URL)
 DEFAULT_YEAR = 2000
@@ -43,23 +43,8 @@ def load_base_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
             "Failed to download ratings dataset. Verify that the CSV_URL is correct and publicly accessible."
         ) from exc
 
-    df = pd.read_csv(
-        io.StringIO(response.text),
-        dtype={
-            "rating_val": "float32",
-            "year_released": "float32",
-        },
-        usecols=[
-            "movie_id",
-            "movie_title",
-            "genres",
-            "original_language",
-            "year_released",
-            "user_id",
-            "rating_val",
-        ],
-    )
-    expected_columns = {
+    df = pd.read_parquet(io.BytesIO(response.content))
+    base_columns = [
         "movie_id",
         "movie_title",
         "genres",
@@ -67,12 +52,21 @@ def load_base_dataset(csv_url: str = CSV_URL) -> pd.DataFrame:
         "year_released",
         "user_id",
         "rating_val",
-    }
-    missing_cols = expected_columns - set(df.columns)
+    ]
+    missing_cols = set(base_columns) - set(df.columns)
     if missing_cols:
         raise ValueError(
             f"Dataset at {csv_url} is missing required columns: {sorted(missing_cols)}"
         )
+
+    optional_cols = [col for col in ("genre", "user_idx", "movie_idx") if col in df.columns]
+    df = df[base_columns + optional_cols]
+
+    if "rating_val" in df.columns:
+        df["rating_val"] = df["rating_val"].astype("float32")
+    if "year_released" in df.columns:
+        df["year_released"] = df["year_released"].astype("float32")
+
     return df
 
 
