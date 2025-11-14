@@ -1,81 +1,95 @@
-const API_BASE_URL = window.API_BASE_URL || "https://dalias-match-989834185609.us-central1.run.app";
+const API_BASE =
+  window.API_BASE_URL || "https://dalias-match-989834185609.us-central1.run.app";
 
 const usernameInput = document.getElementById("username");
-const submitButton = document.getElementById("submit");
-const feedbackEl = document.getElementById("feedback");
-const resultsList = document.getElementById("results-list");
+const resultsContainer = document.getElementById("results");
+const goButton = document.getElementById("goBtn");
 
-function setLoading(isLoading) {
-  submitButton.disabled = isLoading;
-  submitButton.textContent = isLoading ? "Fetching..." : "Get Recommendations";
-  feedbackEl.textContent = isLoading ? "Hang tight — pulling your Letterboxd data." : "";
+const loadingMarkup = `
+  <div class="card" style="grid-column:1/-1;text-align:center;padding:22px">
+    <div class="spinner" style="margin:6px auto 10px;width:22px;height:22px;border:3px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spin .8s linear infinite"></div>
+    <div>Fetching recommendations…</div>
+  </div>
+`;
+
+function renderLoading() {
+  if (resultsContainer) {
+    resultsContainer.innerHTML = loadingMarkup;
+  }
 }
 
-function renderRecommendations(recommendations) {
-  resultsList.innerHTML = "";
-  if (!recommendations || recommendations.length === 0) {
-    feedbackEl.textContent = "No recommendations found for this user yet.";
+function renderError(message) {
+  if (!resultsContainer) return;
+  resultsContainer.innerHTML = `
+    <div class="card" style="grid-column:1/-1;border:1px solid rgba(255,0,0,.2)">
+      <h3>Oops!</h3>
+      <div class="meta">${message}</div>
+    </div>
+  `;
+}
+
+function renderResults(titles) {
+  if (!resultsContainer) return;
+  if (!Array.isArray(titles) || titles.length === 0) {
+    resultsContainer.innerHTML = `
+      <div class="card" style="grid-column:1/-1;text-align:center">
+        No recommendations yet. Try a different username.
+      </div>`;
     return;
   }
 
-  recommendations.forEach((title, index) => {
-    const item = document.createElement("li");
-    const titleSpan = document.createElement("strong");
-    titleSpan.textContent = title;
-
-    const rankSpan = document.createElement("span");
-    rankSpan.textContent = `#${index + 1}`;
-
-    item.appendChild(titleSpan);
-    item.appendChild(rankSpan);
-    resultsList.appendChild(item);
-  });
+  resultsContainer.innerHTML = titles
+    .map(
+      (title, idx) => `
+        <article class="card">
+          <h3>#${idx + 1} · ${title}</h3>
+          <div class="meta">Recommended for you</div>
+        </article>`
+    )
+    .join("");
 }
 
-async function fetchRecommendations() {
-  const username = usernameInput.value.trim();
-  if (!username) {
-    feedbackEl.textContent = "Enter a Letterboxd username to continue.";
-    usernameInput.focus();
+async function fetchRecommendations(handleInput) {
+  const url = `${API_BASE.replace(/\/$/, "")}/recommend?username=${encodeURIComponent(
+    handleInput
+  )}`;
+  const response = await fetch(url, { method: "GET" });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Request failed with status ${response.status}`);
+  }
+  return response.json();
+}
+
+async function handleSubmit() {
+  if (!usernameInput) return;
+
+  const rawValue = usernameInput.value.trim();
+  if (!rawValue) {
+    renderError("Enter at least one Letterboxd username.");
     return;
   }
 
-  const normalizedHandles = username
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean);
+  renderLoading();
 
-  const apiUrl = `${API_BASE_URL.replace(/\/$/, "")}/recommend?username=${encodeURIComponent(username)}`;
-
-  setLoading(true);
   try {
-    const response = await fetch(apiUrl, { method: "GET" });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const message = errorData.detail || "Unable to fetch recommendations.";
-      throw new Error(message);
-    }
-
-    const data = await response.json();
-    if (normalizedHandles.length > 1) {
-      feedbackEl.textContent = `Joint picks for ${normalizedHandles.join(" + ")}`;
-    } else {
-      feedbackEl.textContent = `Top picks for @${normalizedHandles[0]}`;
-    }
-    renderRecommendations(data.recommendations);
+    const data = await fetchRecommendations(rawValue);
+    renderResults(data?.recommendations ?? []);
   } catch (error) {
     console.error(error);
-    feedbackEl.textContent = error.message || "Something went wrong.";
-    resultsList.innerHTML = "";
-  } finally {
-    setLoading(false);
+    renderError("Failed to fetch recommendations. Please try again.");
   }
 }
 
-submitButton.addEventListener("click", fetchRecommendations);
-usernameInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    fetchRecommendations();
-  }
-});
+if (goButton) {
+  goButton.addEventListener("click", handleSubmit);
+}
+
+if (usernameInput) {
+  usernameInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleSubmit();
+    }
+  });
+}

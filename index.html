@@ -1,57 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dalia's Match — Personalized Movie Recs from Letterboxd</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <main class="app">
-      <header class="hero">
-        <h1>Dalia's Match</h1>
-        <p>Personalized movie recommendations pulled straight from Letterboxd.</p>
-      </header>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dalia’s Match · Cinematic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body class="theme-dark">
+<!-- Filmstrip background -->
+<div class="filmstrip">
+<div class="strip">
+<img src="assets/SpiritedAwayBanner.webp" alt="Spirited Away" />
+<img src="assets/TwilightBanner.jpg" alt="Twilight" />
+<img src="assets/TalladegaBanner.jpg" alt="Talladega Nights" />
+<img src="assets/ponyo_Banner.png" alt="Ponyo" />
+<img src="assets/mamma_mia_here_we_go_again_Banner.jpg" alt="Mamma Mia 2" />
+<img src="assets/InterstellarBanner.webp" alt="Interstellar" />
+<img src="assets/PrincessBrideBanner.jpg" alt="The Princess Bride" />
+<img src="assets/HarryPBanner.jpg" alt="Harry Potter" />
+<img src="assets/The-notebook-banner.jpeg" alt="The Notebook" />
+<!-- duplicated for seamless loop -->
+<img src="assets/SpiritedAwayBanner.webp" alt="Spirited Away" />
+<img src="assets/TwilightBanner.jpg" alt="Twilight" />
+<img src="assets/TalladegaBanner.jpg" alt="Talladega Nights" />
+<img src="assets/ponyo_Banner.png" alt="Ponyo" />
+<img src="assets/mamma_mia_here_we_go_again_Banner.jpg" alt="Mamma Mia 2" />
+<img src="assets/InterstellarBanner.webp" alt="Interstellar" />
+<img src="assets/PrincessBrideBanner.jpg" alt="The Princess Bride" />
+<img src="assets/HarryPBanner.jpg" alt="Harry Potter" />
+<img src="assets/The-notebook-banner.jpeg" alt="The Notebook" />
+</div>
+</div>
 
-      <section class="card" aria-label="Recommendation form">
-        <label class="input-label" for="username">Letterboxd username</label>
-        <div class="input-row">
-          <input
-            id="username"
-            name="username"
-            type="text"
-            placeholder="e.g. daliaapr, orenaw"
-            autocomplete="off"
-            required
-          />
-          <button id="submit" type="button">Get Recommendations</button>
-        </div>
-        <p class="tip-box">
-          💡 Tip: add multiple Letterboxd usernames separated by commas to make joint
-          recommendations.
-        </p>
-        <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
-      </section>
 
-      <section class="results" aria-label="Recommendations">
-        <h2>Recommendations</h2>
-        <ul id="results-list" class="results-list"></ul>
-      </section>
-    </main>
+<!-- Overlay for readability -->
+<div class="vignette"></div>
+<div class="glow"></div>
 
-    <footer class="footer">
-      <p>
-        Built with ❤️ using Letterboxd data. Results may take a few seconds while we
-        gather your watch history.
-      </p>
-    </footer>
 
-    <script src="script.js" defer></script>
-  </body>
+<main class="container">
+<header class="hero">
+<h1>🎬 Dalia’s Match</h1>
+<p>Find your cinematic soulmate. Enter your Letterboxd username(s) to get solo or joint recommendations.</p>
+</header>
+
+
+<section class="search">
+<div class="input-wrap">
+<input id="username" type="text" placeholder="Letterboxd username (e.g., daliaapr)" autocomplete="off" />
+<button id="goBtn" aria-label="Get Recommendations">Get Recommendations</button>
+</div>
+<p class="hint">
+  Tip: to generate joint results, enter two usernames separated by a comma (e.g., daliaapr, orenaw).<br>
+  Results are personalized using your Letterboxd ratings and a hybrid recommender.
+</p></section>
+
+
+<section class="results" id="results"></section>
+</main>
+
+
+<footer class="footer">
+<span>
+  Built with ❤️ for film lovers · <a href="https://letterboxd.com/" target="_blank" rel="noopener">Letterboxd</a> compatible<br />
+  By <a href="https://www.linkedin.com/in/oren-arbel-wood-697073233/" target="_blank" rel="noopener">Oren Arbel-Wood</a>
+</span>
+</footer>
+
+
+<script src="script.js"></script>
+</body>
 </html>

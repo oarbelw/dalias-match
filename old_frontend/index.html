@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dalia's Match — Personalized Movie Recs from Letterboxd</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <h1>Dalia's Match</h1>
+        <p>Personalized movie recommendations pulled straight from Letterboxd.</p>
+      </header>
+
+      <section class="card" aria-label="Recommendation form">
+        <label class="input-label" for="username">Letterboxd username</label>
+        <div class="input-row">
+          <input
+            id="username"
+            name="username"
+            type="text"
+            placeholder="e.g. daliaapr, orenaw"
+            autocomplete="off"
+            required
+          />
+          <button id="submit" type="button">Get Recommendations</button>
+        </div>
+        <p class="tip-box">
+          💡 Tip: add multiple Letterboxd usernames separated by commas to make joint
+          recommendations.
+        </p>
+        <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="results" aria-label="Recommendations">
+        <h2>Recommendations</h2>
+        <ul id="results-list" class="results-list"></ul>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>
+        Built with ❤️ using Letterboxd data. Results may take a few seconds while we
+        gather your watch history.
+      </p>
+    </footer>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
