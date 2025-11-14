@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from functools import lru_cache
 from typing import Dict, List
 
@@ -23,29 +24,32 @@ def refresh_dataset() -> None:
     get_artifacts()
 
 
-def generate_recommendations(username: str, top_n: int = 10) -> List[str]:
+def generate_recommendations(username: str, top_n: int = 20) -> List[str]:
     if not username or not username.strip():
         raise RecommendationError("Username must be provided.")
 
-    try:
-        watched_movies = core.get_watched_movies(username.strip())
-    except Exception as exc:  # noqa: BLE001
-        raise RecommendationError(str(exc)) from exc
+    usernames = [handle.strip() for handle in username.split(",") if handle.strip()]
+    if not usernames:
+        raise RecommendationError("Username must be provided.")
 
     artifacts = get_artifacts()
-    user_vector, seen_indices = core.build_user_vector_from_watched(watched_movies, artifacts)
+    combined_scores: defaultdict[int, float] = defaultdict(float)
+    title_lookup: Dict[int, str] = {}
 
-    if not seen_indices:
-        raise RecommendationError(
-            "We couldn't match any of this user's movies to our dataset yet. Try another profile."
-        )
+    for handle in usernames:
+        try:
+            recs_df = core.recommend_for_user(handle, artifacts=artifacts, top_n=100)
+        except ValueError as exc:
+            raise RecommendationError(str(exc)) from exc
 
-    try:
-        recs_df = core.hybrid_recommend_for_new_user(user_vector, seen_indices, artifacts, top_n=top_n)
-    except Exception as exc:  # noqa: BLE001
-        raise RecommendationError("Failed to generate recommendations.") from exc
+        for _, row in recs_df.iterrows():
+            movie_idx = int(row["movie_idx"])
+            combined_scores[movie_idx] += float(row["hybrid_score"])
+            if movie_idx not in title_lookup:
+                title_lookup[movie_idx] = row["movie_title"]
 
-    if recs_df.empty:
-        raise RecommendationError("No recommendations available for this user.")
+    if not combined_scores:
+        raise RecommendationError("No recommendations available for the provided usernames.")
 
-    return recs_df["movie_title"].tolist()
+    top_movies = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    return [title_lookup[idx] for idx, _ in top_movies]

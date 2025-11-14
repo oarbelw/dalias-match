@@ -40,6 +40,11 @@ async function fetchRecommendations() {
     return;
   }
 
+  const normalizedHandles = username
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+
   const apiUrl = `${API_BASE_URL.replace(/\/$/, "")}/recommend?username=${encodeURIComponent(username)}`;
 
   setLoading(true);
@@ -52,7 +57,11 @@ async function fetchRecommendations() {
     }
 
     const data = await response.json();
-    feedbackEl.textContent = `Top picks for @${data.username}`;
+    if (normalizedHandles.length > 1) {
+      feedbackEl.textContent = `Joint picks for ${normalizedHandles.join(" + ")}`;
+    } else {
+      feedbackEl.textContent = `Top picks for @${normalizedHandles[0]}`;
+    }
     renderRecommendations(data.recommendations);
   } catch (error) {
     console.error(error);

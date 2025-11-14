@@ -419,13 +419,15 @@ def hybrid_recommend_for_new_user(
 
     movie_info: pd.DataFrame = artifacts["movie_info"]
     result = hybrid_df.merge(movie_info, left_on="movie_idx", right_index=True)
-    return result[["movie_title", "genres", "hybrid_score", "cf_score", "cb_score"]]
+    return result[
+        ["movie_idx", "movie_title", "genres", "hybrid_score", "cf_score", "cb_score"]
+    ]
 
 
 def recommend_for_user(
     username: str,
     artifacts: Dict[str, object] | None = None,
-    top_n: int = 10,
+    top_n: int = 20,
     delay_seconds: float = PAGE_DELAY_SECONDS,
 ) -> pd.DataFrame:
     if not username or not username.strip():
@@ -457,8 +459,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--top",
         type=int,
-        default=10,
-        help="Number of recommendations to return (default: 10)",
+        default=20,
+        help="Number of recommendations to return (default: 20)",
     )
     parser.add_argument(
         "--artifacts-url",
